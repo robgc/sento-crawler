@@ -1,0 +1,17 @@
+# Crawler settings
+
+# Logging config
+logging:
+  # level, must be one of:
+  # NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: DEBUG
+
+  # output, must be one of:
+  # console, daily_rotating_file
+  output: console
+
+# Twitter config
+twitter:
+  consumer:
+    key: CONSUMER_API_KEY
+    secret: CONSUMER_API_SECRET_KEY
