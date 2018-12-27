@@ -1,0 +1,17 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+flake8 = '*'
+autopep8 = '*'
+rope = '*'
+
+[packages]
+PyYAML = '*'
+peony-twitter = {extras = ['aiohttp'], version = '*'}
+
+
+[requires]
+python_version = "3.7"
