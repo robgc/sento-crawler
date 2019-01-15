@@ -10,8 +10,7 @@ rope = '*'
 
 [packages]
 PyYAML = '*'
-peony-twitter = {extras = ['aiohttp'], version = '*'}
-
+peony-twitter = {extras = ['aiohttp'],version = '>=1.1.2,<2.0'}
 
 [requires]
 python_version = "3.7"
