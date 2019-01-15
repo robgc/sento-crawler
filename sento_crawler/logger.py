@@ -15,14 +15,17 @@
 
 
 import logging
+import time
+from logging.handlers import (QueueHandler, QueueListener,
+                              TimedRotatingFileHandler)
 from pathlib import Path
-from typing import Dict
+from queue import Queue
 
 from sento_crawler.settings import config
 
 LOG_FORMAT = (
-    '[%(levelname)s] - (%(asctime)s) || '
-    '%(module)s - %(funcName)s - %(lineno)d || %(message)s'
+    '%(asctime)-23s %(levelname)-8s '
+    '%(module)s::%(funcName)s::%(lineno)d || %(message)s'
 )
 
 VALID_OUTPUTS = (
@@ -30,28 +33,18 @@ VALID_OUTPUTS = (
     'daily_rotating_file'
 )
 
+_logger = None  # type: logging.Logger
+_queue_listener = None  # type: logging.handlers.QueueListener
 
-def _get_logging_settings() -> Dict:
+
+def _get_logging_settings():
     input_lvl = config.LOGGING_LEVEL
+    input_asyncio_lvl = config.ASYNCIO_LOGGING_LEVEL
     input_out_dst = config.LOGGING_OUTPUT
 
-    lvl = None
-    out_dst = None
-
-    if input_lvl == 'NOTSET':
-        lvl = logging.NOTSET
-    elif input_lvl == 'DEBUG':
-        lvl = logging.DEBUG
-    elif input_lvl == 'INFO':
-        lvl = logging.INFO
-    elif input_lvl == 'WARNING':
-        lvl = logging.WARNING
-    elif input_lvl == 'ERROR':
-        lvl = logging.ERROR
-    elif input_lvl == 'CRITICAL':
-        lvl = logging.CRITICAL
-    else:
-        raise ValueError('A valid logging level must be set.')
+    lvl = logging.getLevelName(input_lvl)
+    asyncio_lvl = logging.getLevelName(input_asyncio_lvl)
+    out_dst = None  # type: str
 
     if input_out_dst in VALID_OUTPUTS:
         out_dst = input_out_dst
@@ -60,31 +53,61 @@ def _get_logging_settings() -> Dict:
 
     return {
         'level': lvl,
+        'asyncio_level': asyncio_lvl,
         'output': out_dst
     }
 
 
-_logging_cfg = _get_logging_settings()
+def _setup_logging():
+    global _logger
+    global _queue_listener
+
+    logging_cfg = _get_logging_settings()
+    log_queue = Queue(-1)
+
+    _logger = logging.getLogger('sento-crawler')
+    asyncio_logger = logging.getLogger('asyncio')
+
+    _logger.setLevel(logging_cfg.get('level'))
+    asyncio_logger.setLevel(logging_cfg.get('asyncio_level'))
+
+    logger_formatter = logging.Formatter(LOG_FORMAT)
+    logger_formatter.converter = time.gmtime
+    out_handler = None  # type: logging.Handler
+
+    if logging_cfg.get('output') == VALID_OUTPUTS[0]:
+        out_handler = logging.StreamHandler()
+    else:
+        logs_path = Path('./logs')
+        logs_path.mkdir(exist_ok=True)
+
+        out_handler = TimedRotatingFileHandler(
+            filename='logs/sento_crawler.log',
+            when='midnight',
+            utc=True
+        )
+
+    out_handler.setLevel(logging.INFO)
+    out_handler.setFormatter(logger_formatter)
+
+    logger_handler = QueueHandler(log_queue)
+    _queue_listener = QueueListener(log_queue, out_handler)
+
+    _logger.addHandler(logger_handler)
+    asyncio_logger.addHandler(logger_handler)
+
+    # The queue listener must be stopped when execution finishes
+    # This line spawns a listener in another thread!
+    _queue_listener.start()
 
 
-logger = logging.getLogger()
-logger.setLevel(_logging_cfg.get('level'))
+def get_logger():
+    if _logger is None:
+        _setup_logging()
+    return _logger
 
-logger_formatter = logging.Formatter(LOG_FORMAT)
-logger_handler = None
 
-if _logging_cfg.get('output') == VALID_OUTPUTS[0]:
-    logger_handler = logging.StreamHandler()
-else:
-    logs_path = Path('./logs')
-    logs_path.mkdir(exist_ok=True)
-
-    logger_handler = logging.handlers.TimedRotatingFileHandler(
-        filename='logs/sento_crawler.log',
-        when='midnight',
-        utc=True
-    )
-
-logger_handler.setLevel(_logging_cfg.get('level'))
-logger_handler.setFormatter(logger_formatter)
-logger.addHandler(logger_handler)
+def get_queue_listener():
+    if _queue_listener is None:
+        _setup_logging()
+    return _queue_listener

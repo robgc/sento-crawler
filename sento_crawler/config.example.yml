@@ -6,12 +6,10 @@ logging:
   # NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
   level: DEBUG
 
+  # asyncioLevel, level of logging for asyncio.
+  # With the same constraints as "level"
+  asyncioLevel: DEBUG
+
   # output, must be one of:
   # console, daily_rotating_file
   output: console
-
-# Twitter config
-twitter:
-  consumer:
-    key: CONSUMER_API_KEY
-    secret: CONSUMER_API_SECRET_KEY
