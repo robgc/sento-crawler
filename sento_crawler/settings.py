@@ -14,14 +14,17 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-from yaml import load as yml_load
-from typing import Dict
+import os
+from pathlib import Path
+
+import yaml
 
 
-def _get_config() -> Dict[str, str]:
-    result = None
-    with open('config.yml') as cfg_file:
-        result = yml_load(cfg_file)
+def _get_config():
+    result = None  # type: Dict[str, str]
+    config_path = Path(__file__).parent.joinpath('config.yml')
+    with open(config_path) as cfg_file:
+        result = yaml.load(cfg_file)
 
     return result
 
@@ -30,12 +33,18 @@ _cfg = _get_config()
 
 
 class Config:
-    _twitter_consum_section = _cfg.get('twitter').get('consumer')
+    env = os.environ
 
-    TWITTER_CONSUMER_API_KEY = _twitter_consum_section.get('key')
-    TWITTER_CONSUMER_API_SECRET_KEY = _twitter_consum_section.get('secret')
+    TWITTER_CONSUMER_API_KEY = env.get('TWITTER_CONSUMER_API_KEY')
+    TWITTER_CONSUMER_API_SECRET_KEY = env.get(
+        'TWITTER_CONSUMER_API_SECRET_KEY'
+    )
+
+    TWITTER_ACCESS_TOKEN = env.get('TWITTER_ACCESS_TOKEN')
+    TWITTER_ACCESS_TOKEN_SECRET = env.get('TWITTER_ACCESS_TOKEN_SECRET')
 
     LOGGING_LEVEL = _cfg.get('logging').get('level')
+    ASYNCIO_LOGGING_LEVEL = _cfg.get('logging').get('asyncioLevel')
     LOGGING_OUTPUT = _cfg.get('logging').get('output')
 
 
