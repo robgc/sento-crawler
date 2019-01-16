@@ -24,8 +24,8 @@ _config = None  # type: Config
 class Config:
     def __init__(self):
         parser = ConfigParser()
-        config_path = Path(__file__).parent.joinpath('config.ini')
-        parser.read_file(config_path)
+        config_path = Path(__file__).parent.parent.joinpath('config.ini')
+        parser.read(config_path)
 
         env = os.environ
 
@@ -40,13 +40,13 @@ class Config:
 
         # Config file
         # Logging
-        self.LOGGING_LEVEL = parser.get('logging').get('level')
-        self.ASYNCIO_LOGGING_LEVEL = parser.get('logging').get('asyncioLevel')
-        self.LOGGING_OUTPUT = parser.get('logging').get('output')
+        self.LOGGING_LEVEL = parser['logging'].get('level')
+        self.ASYNCIO_LOGGING_LEVEL = parser['logging'].get('asyncioLevel')
+        self.LOGGING_OUTPUT = parser['logging'].get('output')
         # Postgres
-        self.POSTGRES_HOST = parser.get('postgres').get('host', 'postgres')
-        self.POSTGRES_PORT = int(parser.get('postgres').get('port', 5432))
-        self.POSTGRES_USER = parser.get('postgres').get('user')
+        self.POSTGRES_HOST = parser['postgres'].get('host', 'postgres')
+        self.POSTGRES_PORT = int(parser['postgres'].get('port', 5432))
+        self.POSTGRES_USER = parser['postgres'].get('user')
 
 
 def get_config():
