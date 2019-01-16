@@ -21,7 +21,7 @@ from logging.handlers import (QueueHandler, QueueListener,
 from pathlib import Path
 from queue import Queue
 
-from sento_crawler.settings import config
+from sento_crawler.settings import get_config
 
 LOG_FORMAT = (
     '%(asctime)-23s %(levelname)-8s '
@@ -38,6 +38,7 @@ _queue_listener = None  # type: logging.handlers.QueueListener
 
 
 def _get_logging_settings():
+    config = get_config()
     input_lvl = config.LOGGING_LEVEL
     input_asyncio_lvl = config.ASYNCIO_LOGGING_LEVEL
     input_out_dst = config.LOGGING_OUTPUT

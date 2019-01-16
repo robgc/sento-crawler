@@ -15,37 +15,42 @@
 
 
 import os
+from configparser import ConfigParser
 from pathlib import Path
 
-import yaml
-
-
-def _get_config():
-    result = None  # type: Dict[str, str]
-    config_path = Path(__file__).parent.joinpath('config.yml')
-    with open(config_path) as cfg_file:
-        result = yaml.load(cfg_file)
-
-    return result
-
-
-_cfg = _get_config()
+_config = None  # type: Config
 
 
 class Config:
-    env = os.environ
+    def __init__(self):
+        parser = ConfigParser()
+        config_path = Path(__file__).parent.joinpath('config.ini')
+        parser.read_file(config_path)
 
-    TWITTER_CONSUMER_API_KEY = env.get('TWITTER_CONSUMER_API_KEY')
-    TWITTER_CONSUMER_API_SECRET_KEY = env.get(
-        'TWITTER_CONSUMER_API_SECRET_KEY'
-    )
+        env = os.environ
 
-    TWITTER_ACCESS_TOKEN = env.get('TWITTER_ACCESS_TOKEN')
-    TWITTER_ACCESS_TOKEN_SECRET = env.get('TWITTER_ACCESS_TOKEN_SECRET')
+        # Secrets
+        # Twitter
+        self.TWITTER_CONSUMER_API_KEY = env.get('TWITTER_CONSUMER_API_KEY')
+        self.TWITTER_CONSUMER_API_SECRET_KEY = env.get(
+            'TWITTER_CONSUMER_API_SECRET_KEY'
+        )
+        # Postgres
+        self.POSTGRES_PASSWD = env.get('POSTGRES_PASSWD', 'sento')
 
-    LOGGING_LEVEL = _cfg.get('logging').get('level')
-    ASYNCIO_LOGGING_LEVEL = _cfg.get('logging').get('asyncioLevel')
-    LOGGING_OUTPUT = _cfg.get('logging').get('output')
+        # Config file
+        # Logging
+        self.LOGGING_LEVEL = parser.get('logging').get('level')
+        self.ASYNCIO_LOGGING_LEVEL = parser.get('logging').get('asyncioLevel')
+        self.LOGGING_OUTPUT = parser.get('logging').get('output')
+        # Postgres
+        self.POSTGRES_HOST = parser.get('postgres').get('host', 'postgres')
+        self.POSTGRES_PORT = int(parser.get('postgres').get('port', 5432))
+        self.POSTGRES_USER = parser.get('postgres').get('user')
 
 
-config = Config()
+def get_config():
+    global _config
+    if _config is None:
+        _config = Config()
+    return _config
