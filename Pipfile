@@ -9,8 +9,8 @@ autopep8 = '*'
 rope = '*'
 
 [packages]
-PyYAML = '*'
 peony-twitter = {extras = ['aiohttp'],version = '>=1.1.2,<2.0'}
+asyncpg = "<0.19"
 
 [requires]
 python_version = "3.7"
