@@ -34,6 +34,10 @@ async def _get_conn_pool():
     return _conn_pool
 
 
-async def get_topics():
-    pool = await _get_conn_pool()
-    return await pool.fetch('SELECT * FROM data.topics')
+class Model:
+    @classmethod
+    async def create(cls):
+        cls.pool = await _get_conn_pool()
+
+    async def get_topics(self):
+        return await self.pool.fetch('SELECT * FROM data.topics')

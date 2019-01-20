@@ -24,7 +24,7 @@ _config = None  # type: Config
 class Config:
     def __init__(self):
         parser = ConfigParser()
-        config_path = Path(__file__).parent.parent.joinpath('config.ini')
+        config_path = Path(__file__).absolute().parents[1].joinpath('config.ini')
         parser.read(config_path)
 
         env = os.environ

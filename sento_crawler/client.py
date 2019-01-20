@@ -1,23 +1,17 @@
-from peony import PeonyClient
-from peony.oauth import OAuth2Headers
+from peony import PeonyClient, task
 
-from sento_crawler.settings import config
-
-_client = None  # type: PeonyClient
+from sento_crawler.logger import get_logger
+from sento_crawler.model import Model
 
 
-async def get_client():
-    global _client
-    if not _client:
-        _client = PeonyClient(
-            consumer_key=config.TWITTER_CONSUMER_API_KEY,
-            consumer_secret=config.TWITTER_CONSUMER_API_SECRET_KEY,
-            auth=OAuth2Headers
-        )
+class TwitterClient(PeonyClient):
+    @classmethod
+    async def create(cls):
+        cls.model = Model()
+        cls.logger = get_logger()
+        await cls.model.create()
 
-    return _client
-
-
-async def test():
-    client = await get_client()
-    return await client.api.trends.available.get()
+    @task
+    async def get_topics(self):
+        response = await self.api.trends.place.get(id=1)
+        self.logger.debug(response)
