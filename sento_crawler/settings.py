@@ -47,6 +47,8 @@ class Config:
         self.POSTGRES_HOST = parser['postgres'].get('host', 'postgres')
         self.POSTGRES_PORT = int(parser['postgres'].get('port', 5432))
         self.POSTGRES_USER = parser['postgres'].get('user')
+        # app config
+        self.SEARCH_WOEID = int(parser['app'].get('woeid'))
 
 
 def get_config():

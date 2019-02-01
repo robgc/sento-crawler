@@ -14,7 +14,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+from datetime import datetime
+
 import asyncpg
+
 from sento_crawler.settings import get_config
 
 _conn_pool = None  # type: asyncpg.pool.Pool
@@ -39,5 +42,35 @@ class Model:
     async def create(cls):
         cls.pool = await _get_conn_pool()
 
-    async def get_topics(self):
-        return await self.pool.fetch('SELECT * FROM data.topics')
+    async def store_trends(self, location_woeid, trends):
+        for idx, trend in enumerate(trends):
+            async with self.pool.acquire() as conn:
+                # Insert trend data if it does not exist on one transaction
+                async with conn.transaction():
+                    await conn.execute(
+                        """
+                        INSERT INTO data.topics (id, url, query_str)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT DO NOTHING
+                        """,
+                        trend.name,
+                        trend.url,
+                        trend.query
+                    )
+
+                # Insert trend's ranking data for the current location
+                # in another transaction
+                async with conn.transaction():
+                    await conn.execute(
+                        """
+                        INSERT INTO data.rankings
+                        (ranking_ts, ranking_no, woeid, tweet_volume, topic_id)
+                        VALUES
+                        ($1, $2, $3, $4, $5)
+                        """,
+                        datetime.utcnow(),
+                        idx + 1,
+                        location_woeid,
+                        trend.tweet_volume,
+                        trend.name
+                    )
