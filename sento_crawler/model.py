@@ -74,3 +74,34 @@ class Model:
                         trend.tweet_volume,
                         trend.name
                     )
+
+    async def get_relevant_topics(self):
+        results = None  # type: asyncpg.Record
+        async with self.pool.acquire() as conn:
+            results = await conn.fetch(
+                """
+                SELECT
+                  t.id AS id,
+                  t.query_str AS query_str
+                FROM
+                  data.rankings r
+                  JOIN data.topics t ON r.topic_id = t.id
+                WHERE
+                  r.ranking_ts BETWEEN now() - interval '1DAY'
+                  AND now()
+                GROUP BY
+                  t.id,
+                  t.query_str
+                """
+            )
+        return results
+
+    # async def get_since_id(self, topic_id):
+    #     result = None
+    #     async with self.pool.acquire() as conn:
+    #         result = await conn.fetchval(
+    #             """
+
+    #             """
+
+    #         )
