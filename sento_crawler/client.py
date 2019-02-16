@@ -49,35 +49,42 @@ class TwitterClient(PeonyClient):
         return [_ for _ in locations if _.parentid == self.search_woeid]
 
     async def _get_location_information(self, location):
-        self.logger.debug(
-            'Requesting location data for %s (WOEID %d)',
-            location.name,
-            location.woeid
-        )
+        if self.model.check_location_existence(location.woeid):
+            self.logger.debug(
+                'Requesting location data for %s (WOEID %d)',
+                location.name,
+                location.woeid
+            )
 
-        async with aiohttp.ClientSession() as session:
-            params = {
-                'format': 'json',
-                'city': location.name,
-                'polygon_geojson': 1,
-                'country': location.country,
-                'limit': 1
-            }
+            async with aiohttp.ClientSession() as session:
+                params = {
+                    'format': 'json',
+                    'city': location.name,
+                    'polygon_geojson': 1,
+                    'country': location.country,
+                    'limit': 1
+                }
 
-            async with session.get(
-                NOMINATIM_SEARCH_URL,
-                params=params
-            ) as resp:
-                data = (await resp.json())[0]
-                # TODO: Store location information
-                self.logger.debug(
-                    'Location data obtained: Place: %s OSM ID: %s Type: %s '
-                    'Coords: %s',
-                    data.get('display_name'),
-                    data.get('osm_id'),
-                    data.get('type'),
-                    f"{data.get('lon')}, {data.get('lat')}"
-                )
+                async with session.get(
+                    NOMINATIM_SEARCH_URL,
+                    params=params
+                ) as resp:
+                    data = await resp.json()
+                    osm_data = data[0] if data else None
+
+                    # Convert coordinates to float
+                    osm_data['lon'] = float(osm_data.get('lon'))
+                    osm_data['lat'] = float(osm_data.get('lat'))
+
+                    self.logger.debug(
+                        'Storing location data for %s (WOEID %d) [%f, %f]...',
+                        osm_data.get('display_name'),
+                        location.woeid,
+                        osm_data.get('lon'),
+                        osm_data.get('lat')
+                    )
+
+                    self.model.store_location(osm_data, location)
 
     async def _get_trends_for_location(self, location):
         self.logger.debug(
@@ -107,18 +114,21 @@ class TwitterClient(PeonyClient):
 
     @task
     async def get_trends(self):
-        while True:
-            self.logger.debug('Looking for trends...')
-            locations = await self._get_locations_with_trends()
+        try:
+            while True:
+                self.logger.debug('Looking for trends...')
+                locations = await self._get_locations_with_trends()
 
-            coros = [self._get_trends_for_location(_) for _ in locations]
+                coros = [self._get_trends_for_location(_) for _ in locations]
 
-            self.logger.debug('Launching trends extraction coroutines '
-                              'for each location...')
-            await asyncio.gather(*coros)
+                self.logger.debug('Launching trends extraction coroutines '
+                                  'for each location...')
+                await asyncio.gather(*coros)
 
-            self.logger.debug('Sleeping...')
-            await asyncio.sleep(15 * 60)
+                self.logger.debug('Sleeping...')
+                await asyncio.sleep(15 * 60)
+        except Exception as err:
+            self.logger.error(f'Exception ocurred in get_trends task: {err}')
 
     # TODO: Finish this task
 

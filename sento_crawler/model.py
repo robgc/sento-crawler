@@ -51,7 +51,7 @@ class Model:
                         """
                         INSERT INTO data.topics (id, url, query_str)
                         VALUES ($1, $2, $3)
-                        ON CONFLICT DO NOTHING
+                        ON CONFLICT (id) DO NOTHING
                         """,
                         trend.name,
                         trend.url,
@@ -95,6 +95,45 @@ class Model:
                 """
             )
         return results
+
+    async def check_location_existence(self, woeid):
+        async with self.pool.acquire() as conn:
+            return await conn.fetchval(
+                """
+                SELECT
+                  exists(
+                    SELECT 1
+                    FROM
+                      data.locations l
+                    WHERE
+                      l.id = $1
+                  )
+                """,
+                woeid
+            )
+
+    async def store_location(self, geo_data, twitter_data):
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    """
+                    INSERT INTO data.locations
+                      (id, the_geom, coords, name, geo_name)
+                    VALUES
+                      ($1, ST_SetSRID(ST_GeomFromGeoJSON($2), 4326),
+                       ST_SetSRID(ST_MakePoint($3, $4), 4326),
+                       $5, $6
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    twitter_data.get('woeid'),
+                    geo_data.get('geojson'),
+                    geo_data.get('lon'),
+                    geo_data.get('lat'),
+                    twitter_data.get('name'),
+                    geo_data.get('display_name')
+                )
+
+
 
     # async def get_since_id(self, topic_id):
     #     result = None
