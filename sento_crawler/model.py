@@ -14,6 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+import json
 from datetime import datetime
 
 import asyncpg
@@ -112,25 +113,28 @@ class Model:
                 woeid
             )
 
-    async def store_location(self, geo_data, twitter_data):
+    async def store_location(self, osm_data, twitter_data):
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute(
                     """
                     INSERT INTO data.locations
-                      (id, the_geom, coords, name, geo_name)
-                    VALUES
-                      ($1, ST_SetSRID(ST_GeomFromGeoJSON($2), 4326),
-                       ST_SetSRID(ST_MakePoint($3, $4), 4326),
-                       $5, $6
+                      (id, the_geom, coords, name, osm_name)
+                    VALUES (
+                      $1,
+                      ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($2), 4326)),
+                      ST_SetSRID(ST_MakePoint($3, $4), 4326),
+                      $5,
+                      $6
+                    )
                     ON CONFLICT (id) DO NOTHING
                     """,
                     twitter_data.get('woeid'),
-                    geo_data.get('geojson'),
-                    geo_data.get('lon'),
-                    geo_data.get('lat'),
+                    json.dumps(osm_data.get('geojson')),
+                    float(osm_data.get('lon')),
+                    float(osm_data.get('lat')),
                     twitter_data.get('name'),
-                    geo_data.get('display_name')
+                    osm_data.get('display_name')
                 )
 
 
