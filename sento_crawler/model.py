@@ -15,6 +15,7 @@
 
 
 import json
+import re
 from datetime import datetime
 
 import asyncpg
@@ -22,6 +23,10 @@ import asyncpg
 from sento_crawler.settings import get_config
 
 _conn_pool = None  # type: asyncpg.pool.Pool
+_url_regex = (
+    r'[(http(s)?):\/\/(www\.)?a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b'
+    r'([-a-zA-Z0-9@:%_\+.~#?&//=]*)'
+)
 
 
 async def _get_conn_pool():
@@ -76,23 +81,29 @@ class Model:
                         trend.name
                     )
 
-    async def get_relevant_topics(self):
+    async def get_relevant_trends_info(self):
         results = None  # type: asyncpg.Record
         async with self.pool.acquire() as conn:
             results = await conn.fetch(
                 """
                 SELECT
                   t.id AS id,
-                  t.query_str AS query_str
-                FROM
-                  data.rankings r
+                  t.query_str AS query_str,
+                  l.name AS location_name,
+                  l.id AS woeid,
+                  st_x (l.the_geom_point) AS longitude,
+                  st_y (l.the_geom_point) AS latitude,
+                  ceil(l.bcircle_radius / 1000) AS radius_km
+                FROM ( SELECT DISTINCT
+                    topic_id,
+                    woeid
+                  FROM
+                    data.rankings
+                  WHERE
+                    ranking_ts BETWEEN now() - interval '12 hours'
+                    AND now()) r
                   JOIN data.topics t ON r.topic_id = t.id
-                WHERE
-                  r.ranking_ts BETWEEN now() - interval '1DAY'
-                  AND now()
-                GROUP BY
-                  t.id,
-                  t.query_str
+                  JOIN data.locations l ON r.woeid = l.id
                 """
             )
         return results
@@ -119,7 +130,7 @@ class Model:
                 await conn.execute(
                     """
                     INSERT INTO data.locations
-                      (id, the_geom, coords, name, osm_name)
+                      (id, the_geom, the_geom_point, name, osm_name)
                     VALUES (
                       $1,
                       ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON($2), 4326)),
@@ -137,14 +148,22 @@ class Model:
                     osm_data.get('display_name')
                 )
 
-
-
-    # async def get_since_id(self, topic_id):
-    #     result = None
-    #     async with self.pool.acquire() as conn:
-    #         result = await conn.fetchval(
-    #             """
-
-    #             """
-
-    #         )
+    # TODO: Finish bulk upload
+    # Checkpoint: Datetime formatting and time locale management
+    async def store_tweets(self, tweets, trend_id, woeid):
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.copy_records_to_table(
+                    table_name='statuses',
+                    records=[(
+                        # Sun Feb 25 19:31:07 +0000 2018
+                        x.id,
+                        datetime.strptime(
+                            x.created_at,
+                            '%a %b %d %H:%M%S %z %Y'
+                        )
+                        re.sub(_url_regex, x.text),
+                        trend_id,
+                        woeid
+                    )]
+                )

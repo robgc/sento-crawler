@@ -49,7 +49,9 @@ class TwitterClient(PeonyClient):
         return [_ for _ in locations if _.parentid == self.search_woeid]
 
     async def _get_location_information(self, location):
-        location_exists = (await self.model.check_location_existence(location.get('woeid')))
+        location_exists = (
+            await self.model.check_location_existence(location.get('woeid'))
+        )
         if not location_exists:
             self.logger.debug(
                 'Requesting location data for %s (WOEID %d)',
@@ -92,190 +94,86 @@ class TwitterClient(PeonyClient):
             location.country
         )
 
-        # FIXME: Add stable code
-
-        # trends_response, location_info = await asyncio.gather(
-        #     self.api.trends.place.get(id=location.woeid),
-        #     self._get_location_information(location)
-        # )
+        trends_response, location_info = await asyncio.gather(
+            self.api.trends.place.get(id=location.woeid),
+            self._get_location_information(location)
+        )
 
         # Get the trends from the response
-        # trends = trends_response.data[0].get('trends')
+        trends = trends_response.data[0].get('trends')
 
-        # self.logger.debug(
-        #     'Storing trends and location info for %s WOEID: %d Country: %s',
-        #     location.name,
-        #     location.woeid,
-        #     location.country
-        # )
+        self.logger.debug(
+            'Storing trends and location info for %s WOEID: %d Country: %s',
+            location.name,
+            location.woeid,
+            location.country
+        )
 
-        # await self.model.store_trends(location.woeid, trends)
-
-        await self._get_location_information(location)
+        await self.model.store_trends(location.woeid, trends)
 
     @task
     async def get_trends(self):
         try:
             while True:
                 self.logger.debug('Looking for trends')
-                # FIXME: Remove locations mock
-                # locations = await self._get_locations_with_trends()
-                locations = [
-                    {
-                        "name": "Barcelona",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/753692",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 753692,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Bilbao",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/754542",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 754542,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Las Palmas",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/764814",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 764814,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Madrid",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/766273",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 766273,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Malaga",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/766356",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 766356,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Murcia",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/768026",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 768026,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Palma",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/769293",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 769293,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Seville",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/774508",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 774508,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Valencia",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/776688",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 776688,
-                        "countryCode": "ES"
-                    },
-                    {
-                        "name": "Zaragoza",
-                        "placeType": {
-                            "code": 7,
-                            "name": "Town"
-                        },
-                        "url": "http://where.yahooapis.com/v1/place/779063",
-                        "parentid": 23424950,
-                        "country": "Spain",
-                        "woeid": 779063,
-                        "countryCode": "ES"
-                    }
-                ]
 
-                # coros = [self._get_trends_for_location(_) for _ in locations]
-                coros = [self._get_location_information(_) for _ in locations]
+                locations = await self._get_locations_with_trends()
+                coros = [self._get_trends_for_location(_) for _ in locations]
 
                 self.logger.debug('Launching trends extraction coroutines '
                                   'for each location')
+
                 await asyncio.gather(*coros)
 
                 self.logger.debug('Sleeping')
+
                 await asyncio.sleep(15 * 60)
         except Exception as err:
             self.logger.error(f'Exception ocurred in get_trends task: {err}')
 
-    # TODO: Finish this task
+    @task
+    async def get_tweets(self):
+        self.logger.debug('Extracting tweets for trends')
 
-    # @task
-    # async def get_tweets(self):
-    #     self.logger.debug('Extracting tweets for trends')
+        relevant_trends = await self.model.get_relevant_trends_info()
 
-    #     while True:
-    #         relevant_topics = await self.model.get_relevant_topics()
-    #         if relevant_topics:
-    #             break
-    #         else:
-    #             await asyncio.sleep(30)
+        while not relevant_trends:
+            await asyncio.sleep(5)
+            relevant_trends = await self.model.get_relevant_trends_info()
 
-    #     for topic in relevant_topics:
-    #         req_params = {
-    #             'q': topic.query_str,
-    #             'result_type': 'recent',
-    #             'count': 100
-    #         }
-    #         req = self.api.search.tweets.get(
-    #             q=topic.query_str,
-    #             result_type='recent',
-    #             count=100
-    #         )
+        coros = [self._get_tweets_from_trend(_) for _ in relevant_trends]
+
+        await asyncio.gather(*coros)
+
+    # TODO: Finish model `store_tweets` and test the since_id iterator
+
+    async def _get_tweets_from_trend(self, trend):
+        self.logger.debug(
+            'Extracting tweets from trend "%s" written in %s',
+            trend.get('id'),
+            trend.get('location_name')
+        )
+
+        geocode_str = (
+            f'{trend.get("latitude")},'
+            f'{trend.get("longitude")},'
+            f'{trend.get("radius_km")}km'
+        )
+
+        # TODO: Make locale configurable
+
+        req_params = {
+            'q': trend.get('query_str'),
+            'geocode': geocode_str,
+            'result_type': 'recent',
+            'count': 100,
+            'locale': 'es'
+        }
+
+        req = self.api.search.tweets.get(**req_params)
+        responses = req.iterator.with_since_id()
+
+        async for tweets in responses:
+            await self.model.store_tweets(
+                tweets, trend.get('id'), trend.get('woeid')
+            )
