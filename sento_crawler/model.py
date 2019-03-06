@@ -19,6 +19,7 @@ import re
 from datetime import datetime
 
 import asyncpg
+from dateutil import parser, tz
 
 from sento_crawler.settings import get_config
 
@@ -148,22 +149,19 @@ class Model:
                     osm_data.get('display_name')
                 )
 
-    # TODO: Finish bulk upload
-    # Checkpoint: Datetime formatting and time locale management
     async def store_tweets(self, tweets, trend_id, woeid):
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 await conn.copy_records_to_table(
                     table_name='statuses',
-                    records=[(
-                        # Sun Feb 25 19:31:07 +0000 2018
-                        x.id,
-                        datetime.strptime(
-                            x.created_at,
-                            '%a %b %d %H:%M%S %z %Y'
-                        )
-                        re.sub(_url_regex, x.text),
-                        trend_id,
-                        woeid
-                    )]
+                    records=[
+                        (x.id,
+                         parser.parse(x.created_at)
+                         .astimezone(tz.tzutc()).replace(tzinfo=None),
+                         datetime.utcnow(),
+                         re.sub(_url_regex, '', x.text),
+                         trend_id,
+                         woeid) for x in tweets
+                    ],
+                    schema_name='data'
                 )

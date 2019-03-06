@@ -141,11 +141,12 @@ class TwitterClient(PeonyClient):
             await asyncio.sleep(5)
             relevant_trends = await self.model.get_relevant_trends_info()
 
-        coros = [self._get_tweets_from_trend(_) for _ in relevant_trends]
+        for coros in self._distribute_trends(relevant_trends, 5):
+            await asyncio.gather(*coros)
 
-        await asyncio.gather(*coros)
-
-    # TODO: Finish model `store_tweets` and test the since_id iterator
+    def _distribute_trends(self, trends, size):
+        for i in range(0, len(trends), size):
+            yield [self._get_tweets_from_trend(_) for _ in trends[i:i+size]]
 
     async def _get_tweets_from_trend(self, trend):
         self.logger.debug(
@@ -160,20 +161,19 @@ class TwitterClient(PeonyClient):
             f'{trend.get("radius_km")}km'
         )
 
-        # TODO: Make locale configurable
+        # TODO: Make lang configurable
 
         req_params = {
             'q': trend.get('query_str'),
             'geocode': geocode_str,
-            'result_type': 'recent',
             'count': 100,
-            'locale': 'es'
+            'lang': 'es'
         }
 
         req = self.api.search.tweets.get(**req_params)
         responses = req.iterator.with_since_id()
 
-        async for tweets in responses:
+        async for response in responses:
             await self.model.store_tweets(
-                tweets, trend.get('id'), trend.get('woeid')
+                response.data.statuses, trend.get('id'), trend.get('woeid')
             )
