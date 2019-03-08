@@ -24,7 +24,12 @@ _config = None  # type: Config
 class Config:
     def __init__(self):
         parser = ConfigParser()
-        config_path = Path(__file__).absolute().parents[1].joinpath('config.ini')
+        config_path = (
+            Path(__file__)
+            .absolute()
+            .parents[1]
+            .joinpath('config.ini')
+        )
         parser.read(config_path)
 
         env = os.environ
@@ -42,6 +47,9 @@ class Config:
         # Logging
         self.LOGGING_LEVEL = parser['logging'].get('level')
         self.ASYNCIO_LOGGING_LEVEL = parser['logging'].get('asyncioLevel')
+        self.PEONY_TWITTER_LOGGING_LEVEL = (
+            parser['logging'].get('peonyTwitterLevel')
+        )
         self.LOGGING_OUTPUT = parser['logging'].get('output')
         # Postgres
         self.POSTGRES_HOST = parser['postgres'].get('host', 'postgres')

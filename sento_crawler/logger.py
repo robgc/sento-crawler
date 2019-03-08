@@ -21,6 +21,8 @@ from logging.handlers import (QueueHandler, QueueListener,
 from pathlib import Path
 from queue import Queue
 
+from peony import logger as peony_logger
+
 from sento_crawler.settings import get_config
 
 LOG_FORMAT = (
@@ -41,10 +43,12 @@ def _get_logging_settings():
     config = get_config()
     input_lvl = config.LOGGING_LEVEL
     input_asyncio_lvl = config.ASYNCIO_LOGGING_LEVEL
+    input_peony_lvl = config.PEONY_TWITTER_LOGGING_LEVEL
     input_out_dst = config.LOGGING_OUTPUT
 
     lvl = logging.getLevelName(input_lvl)
     asyncio_lvl = logging.getLevelName(input_asyncio_lvl)
+    peony_lvl = logging.getLevelName(input_peony_lvl)
     out_dst = None  # type: str
 
     if input_out_dst in VALID_OUTPUTS:
@@ -55,6 +59,7 @@ def _get_logging_settings():
     return {
         'level': lvl,
         'asyncio_level': asyncio_lvl,
+        'peony_level': peony_lvl,
         'output': out_dst
     }
 
@@ -71,6 +76,7 @@ def _setup_logging():
 
     _logger.setLevel(logging_cfg.get('level'))
     asyncio_logger.setLevel(logging_cfg.get('asyncio_level'))
+    peony_logger.setLevel(logging_cfg.get('peony_level'))
 
     logger_formatter = logging.Formatter(LOG_FORMAT)
     logger_formatter.converter = time.gmtime
@@ -96,6 +102,7 @@ def _setup_logging():
 
     _logger.addHandler(logger_handler)
     asyncio_logger.addHandler(logger_handler)
+    peony_logger.addHandler(logger_handler)
 
     # The queue listener must be stopped when execution finishes
     # This line spawns a listener in another thread!
