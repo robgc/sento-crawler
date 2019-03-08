@@ -49,6 +49,15 @@ class TwitterClient(PeonyClient):
         return [_ for _ in locations if _.parentid == self.search_woeid]
 
     async def _get_location_information(self, location):
+        """Queries the location geometry from Openstreetmap's nominatim
+        service and stores it in the database.
+
+        Parameters
+        ----------
+        location : dict
+            Location definition from twitter.
+        """
+
         location_exists = (
             await self.model.check_location_existence(location.get('woeid'))
         )
@@ -86,6 +95,15 @@ class TwitterClient(PeonyClient):
                     await self.model.store_location(osm_data, location)
 
     async def _get_trends_for_location(self, location):
+        """Queries the current trends available in a location and stores
+        the location's geospatial information and the different trends.
+
+        Parameters
+        ----------
+        location : dict
+            Location object from twitter.
+        """
+
         self.logger.debug(
             'Requesting trends and location data for '
             '%s WOEID: %d Country: %s',
@@ -94,7 +112,7 @@ class TwitterClient(PeonyClient):
             location.country
         )
 
-        trends_response, location_info = await asyncio.gather(
+        trends_response, _ = await asyncio.gather(
             self.api.trends.place.get(id=location.woeid),
             self._get_location_information(location)
         )
@@ -113,6 +131,12 @@ class TwitterClient(PeonyClient):
 
     @task
     async def get_trends(self):
+        """Periodic task for querying the current trends in different
+        locations whose parent WOEID is the specified in the configuration
+        file. The trends and the location geospatial information is stored
+        in the database.
+        """
+
         try:
             while True:
                 self.logger.debug('Looking for trends')
@@ -133,6 +157,11 @@ class TwitterClient(PeonyClient):
 
     @task
     async def get_tweets(self):
+        """Periodic task for extracting tweets/statuses from the different
+        trends existing in the different locations and storing them in the
+        database.
+        """
+
         self.logger.debug('Extracting tweets for trends')
 
         relevant_trends = await self.model.get_relevant_trends_info()
@@ -149,6 +178,14 @@ class TwitterClient(PeonyClient):
             yield [self._get_tweets_from_trend(_) for _ in trends[i:i+size]]
 
     async def _get_tweets_from_trend(self, trend):
+        """Extracts the available tweets from a trend in a certain location.
+
+        Parameters
+        ----------
+        trend : dict
+            Twitter and geospatial data for a certain trend.
+        """
+
         self.logger.debug(
             'Extracting tweets from trend "%s" written in %s',
             trend.get('id'),
@@ -167,7 +204,8 @@ class TwitterClient(PeonyClient):
             'q': trend.get('query_str'),
             'geocode': geocode_str,
             'count': 100,
-            'lang': 'es'
+            'lang': 'es',
+            'tweet_mode': 'extended'
         }
 
         req = self.api.search.tweets.get(**req_params)
