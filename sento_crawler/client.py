@@ -46,7 +46,7 @@ class TwitterClient(PeonyClient):
         self.logger.debug('Requesting trends/available')
 
         locations = await self.api.trends.available.get()
-        return [_ for _ in locations if _.parentid == self.search_woeid]
+        return [_ for _ in locations if _.get('parentid') == self.search_woeid]
 
     async def _get_location_information(self, location):
         """Queries the location geometry from Openstreetmap's nominatim
@@ -107,13 +107,13 @@ class TwitterClient(PeonyClient):
         self.logger.debug(
             'Requesting trends and location data for '
             '%s WOEID: %d Country: %s',
-            location.name,
-            location.woeid,
-            location.country
+            location.get('name'),
+            location.get('woeid'),
+            location.get('country')
         )
 
         trends_response, _ = await asyncio.gather(
-            self.api.trends.place.get(id=location.woeid),
+            self.api.trends.place.get(id=location.get('woeid')),
             self._get_location_information(location)
         )
 
@@ -122,12 +122,12 @@ class TwitterClient(PeonyClient):
 
         self.logger.debug(
             'Storing trends and location info for %s WOEID: %d Country: %s',
-            location.name,
-            location.woeid,
-            location.country
+            location.get('name'),
+            location.get('woeid'),
+            location.get('country')
         )
 
-        await self.model.store_trends(location.woeid, trends)
+        await self.model.store_trends(location.get('woeid'), trends)
 
     @task
     async def get_trends(self):
@@ -139,17 +139,19 @@ class TwitterClient(PeonyClient):
 
         try:
             while True:
-                self.logger.debug('Looking for trends')
+                self.logger.info('Looking for trends')
 
                 locations = await self._get_locations_with_trends()
                 coros = [self._get_trends_for_location(_) for _ in locations]
 
-                self.logger.debug('Launching trends extraction coroutines '
-                                  'for each location')
+                self.logger.info('Launching trends extraction coroutines '
+                                 'for each location')
 
                 await asyncio.gather(*coros)
 
-                self.logger.debug('Sleeping')
+                self.logger.info(
+                    'Sleeping trends search. Next trend search in 15 minutes'
+                )
 
                 await asyncio.sleep(15 * 60)
         except Exception as err:
@@ -162,16 +164,26 @@ class TwitterClient(PeonyClient):
         database.
         """
 
-        self.logger.debug('Extracting tweets for trends')
+        try:
+            while True:
+                self.logger.info('Extracting tweets from trends in each location')
 
-        relevant_trends = await self.model.get_relevant_trends_info()
+                relevant_trends = await self.model.get_relevant_trends_info()
 
-        while not relevant_trends:
-            await asyncio.sleep(5)
-            relevant_trends = await self.model.get_relevant_trends_info()
+                while not relevant_trends:
+                    await asyncio.sleep(5)
+                    relevant_trends = (await
+                                       self.model.get_relevant_trends_info())
 
-        for coros in self._distribute_trends(relevant_trends, 5):
-            await asyncio.gather(*coros)
+                self.logger.info(
+                    'Launching tweets extraction coroutines '
+                    'for each trend and location'
+                )
+
+                for coros in self._distribute_trends(relevant_trends, 5):
+                    await asyncio.gather(*coros)
+        except Exception as err:
+            self.logger.error(f'Exception ocurred in get_tweets task: {err}')
 
     def _distribute_trends(self, trends, size):
         for i in range(0, len(trends), size):
@@ -185,12 +197,6 @@ class TwitterClient(PeonyClient):
         trend : dict
             Twitter and geospatial data for a certain trend.
         """
-
-        self.logger.debug(
-            'Extracting tweets from trend "%s" written in %s',
-            trend.get('id'),
-            trend.get('location_name')
-        )
 
         geocode_str = (
             f'{trend.get("latitude")},'
@@ -209,9 +215,34 @@ class TwitterClient(PeonyClient):
         }
 
         req = self.api.search.tweets.get(**req_params)
-        responses = req.iterator.with_since_id()
+        responses = req.iterator.with_since_id(force=False)
 
-        async for response in responses:
-            await self.model.store_tweets(
-                response.data.statuses, trend.get('id'), trend.get('woeid')
+        try:
+            self.logger.debug(
+                'Extracting tweets from trend "%s" written in %s',
+                trend.get('id'),
+                trend.get('location_name')
+            )
+            async for response in responses:
+                self.logger.debug(
+                    'Storing tweets from search request to "%s" in %s',
+                    trend.get('id'),
+                    trend.get('location_name')
+                )
+
+                await self.model.store_tweets(
+                    response.data.statuses, trend.get('id'), trend.get('woeid')
+                )
+        except IndexError:
+            # Peony raises IndexError when the first request returns no
+            # results, this happens when a trend is not relevant enough
+            # in a location. This except block may be removed when Peony
+            # ceases to raise this exception on these cases.
+            self.logger.debug(
+                'Could not iterate through tweets from trend "%s" '
+                'written in %s. Twitter may have returned no results. '
+                'Parameters used in request: %s',
+                trend.get('id'),
+                trend.get('location_name'),
+                req_params
             )

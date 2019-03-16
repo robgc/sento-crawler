@@ -152,16 +152,23 @@ class Model:
     async def store_tweets(self, tweets, trend_id, woeid):
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                await conn.copy_records_to_table(
-                    table_name='statuses',
-                    records=[
-                        (x.id,
-                         parser.parse(x.created_at)
-                         .astimezone(tz.tzutc()).replace(tzinfo=None),
-                         datetime.utcnow(),
-                         re.sub(_url_regex, '', x.text),
-                         trend_id,
-                         woeid) for x in tweets
-                    ],
-                    schema_name='data'
+                await conn.executemany(
+                    """
+                    INSERT INTO data.statuses
+                      (id, wrote_at, fetched_at, content, topic_id, woeid)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (id, topic_id, woeid) DO NOTHING
+                    """,
+                    [
+                        (
+                            x.id,
+                            parser.parse(x.created_at).astimezone(tz.tzutc())
+                            .replace(tzinfo=None),
+                            datetime.utcnow(),
+                            re.sub(_url_regex, '', x.text),
+                            trend_id,
+                            woeid
+                        )
+                        for x in tweets
+                    ]
                 )
