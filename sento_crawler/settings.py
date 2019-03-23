@@ -51,10 +51,13 @@ class Config:
             parser['logging'].get('peonyTwitterLevel')
         )
         self.LOGGING_OUTPUT = parser['logging'].get('output')
+
         # Postgres
         self.POSTGRES_HOST = parser['postgres'].get('host', 'postgres')
         self.POSTGRES_PORT = int(parser['postgres'].get('port', 5432))
-        self.POSTGRES_USER = parser['postgres'].get('user')
+        self.POSTGRES_DATABASE = parser['postgres'].get('database', 'sento')
+        self.POSTGRES_USER = parser['postgres'].get('user', 'sento')
+
         # app config
         self.SEARCH_WOEID = int(parser['app'].get('woeid'))
 

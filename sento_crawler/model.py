@@ -39,7 +39,7 @@ async def _get_conn_pool():
             port=config.POSTGRES_PORT,
             user=config.POSTGRES_USER,
             password=config.POSTGRES_PASSWD,
-            database='sento'
+            database=config.POSTGRES_DATABASE
         )
     return _conn_pool
 
