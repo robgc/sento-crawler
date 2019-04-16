@@ -17,6 +17,8 @@ FROM python:3.7.3-alpine3.9
 
 WORKDIR /usr/src/app
 
+ENV PYTHONPATH=${PYTHONPATH}:/usr/src/app
+
 COPY Pipfile /usr/src/app
 COPY Pipfile.lock /usr/src/app
 
@@ -29,4 +31,4 @@ RUN set -x \
 
 COPY . /usr/src/app
 
-CMD [ "pipenv", "run", "sento_craler/main.py" ]
+CMD [ "pipenv", "run", "python", "sento_crawler/main.py" ]
