@@ -50,6 +50,8 @@ class Model:
         cls.pool = await _get_conn_pool()
 
     async def store_trends(self, location_woeid, trends):
+        store_moment = datetime.utcnow()
+
         for idx, trend in enumerate(trends):
             async with self.pool.acquire() as conn:
                 # Insert trend data if it does not exist on one transaction
@@ -75,7 +77,7 @@ class Model:
                         VALUES
                         ($1, $2, $3, $4, $5)
                         """,
-                        datetime.utcnow(),
+                        store_moment,
                         idx + 1,
                         location_woeid,
                         trend.tweet_volume,
