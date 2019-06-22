@@ -8,8 +8,11 @@ A concurrent tool designed for extracting and storing text from tweets about tre
 
 # Prerequisites
 
-In order to set up an instance you need a PostgreSQL database initialised
+In order to set up an instance you need a PostgreSQL database initialised previously
 using the instructions available in [Sento API's readme](https://github.com/robgc/sento-api).
+
+You also need a Twitter Developer account and a set of _Consumer API keys_ for your
+Twitter Application.
 
 # Executing the tool
 
@@ -28,16 +31,22 @@ You have two options:
 
 ## Configuring the tool
 
-Follow these steps:
-
-- Create a `config.ini` file from a copy of `config.example.ini` and adjust
+Create a `config.ini` file from a copy of `config.example.ini` and adjust
 the configuration according to your needs. If you use the PostgreSQL container
-provided in Sento API instructions, let the default value of `sento-db` in
-`[postgres].host`.
+provided in Sento API instructions, let the default value of `sento-db` in the
+`[postgres].host` section of your `config.ini`.
 
-- Set your secrets in a `.env` file, make a copy of the `example.env` file.
-  Keep in mind that you need a Twitter Developer account and a set of
-  consumer API keys.
+## Running the tool
+
+- **With Docker**: run `docker-compose up -d`, this will compile the container image for you if
+  you have not done it previously. If you make any changes to your `config.ini` after running
+  the container you will need to stop it, remove it and recreate the container's image before
+  creating another container instance. This container will try to connect
+  to the `sento-net` Docker network, where the PostGIS container is listening for connections.
+
+- **Running locally**:
+  - Install the necessary dependencies in a virtual environment with `pipenv sync`.
+  - Run the following command `pipenv run sento_api/main.py`, this will start Sento Crawler.
 
 # License
 
