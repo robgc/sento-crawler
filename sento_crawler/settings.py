@@ -14,7 +14,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import os
 from configparser import ConfigParser
 from pathlib import Path
 
@@ -32,18 +31,6 @@ class Config:
         )
         parser.read(config_path)
 
-        env = os.environ
-
-        # Secrets
-        # Twitter
-        self.TWITTER_CONSUMER_API_KEY = env.get('TWITTER_CONSUMER_API_KEY')
-        self.TWITTER_CONSUMER_API_SECRET_KEY = env.get(
-            'TWITTER_CONSUMER_API_SECRET_KEY'
-        )
-        # Postgres
-        self.POSTGRES_PASSWD = env.get('POSTGRES_PASSWD', 'sento')
-
-        # Config file
         # Logging
         self.LOGGING_LEVEL = parser['logging'].get('level')
         self.ASYNCIO_LOGGING_LEVEL = parser['logging'].get('asyncioLevel')
@@ -57,9 +44,18 @@ class Config:
         self.POSTGRES_PORT = int(parser['postgres'].get('port', 5432))
         self.POSTGRES_DATABASE = parser['postgres'].get('database', 'sento')
         self.POSTGRES_USER = parser['postgres'].get('user', 'sento')
+        self.POSTGRES_PASSWD = parser['postgres'].get('password', 'sento')
 
         # app config
         self.SEARCH_WOEID = int(parser['app'].get('woeid'))
+
+        # Twitter
+        self.TWITTER_CONSUMER_API_KEY = (
+            parser['twitter'].get('consumer_api_key')
+        )
+        self.TWITTER_CONSUMER_API_SECRET_KEY = (
+            parser['twitter'].get('consumer_api_secret_key')
+        )
 
 
 def get_config():
