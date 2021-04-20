@@ -5,7 +5,7 @@ verify_ssl = true
 
 [packages]
 peony-twitter = {extras = ['aiohttp'],version = '>=1.1.2,<2.0'}
-asyncpg = "<0.19"
+asyncpg = "<0.22"
 aiohttp = "<3.6"
 python-dateutil = "<2.9"
 
